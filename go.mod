@@ -24,7 +24,7 @@ require (
 )
 
 require (
-	github.com/go-faster/errors v0.7.1 // indirect
+	github.com/go-faster/errors v0.7.1
 	github.com/go-faster/jx v1.1.0 // indirect
 	github.com/gotd/contrib v0.19.0
 	github.com/gotd/neo v0.1.5 // indirect
