@@ -35,7 +35,7 @@ func main() {
 
 func run(ctx context.Context) error {
 	cfg := config.ReadEnv()
-
+	var chatID int64 = 0
 	logger, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
 	defer func() { _ = logger.Sync() }()
 
@@ -67,6 +67,7 @@ func run(ctx context.Context) error {
 		m, _ := update.Message.(*tg.Message)
 		jitem, _ := json.Marshal(m)
 		if err := webhook.GetPost(cfg.Url, string(jitem)); err != nil {
+			botcode.SendLog(cfg.Bot, chatID, "Err webhook")
 			return errors.Wrap(err, "webhook")
 		}
 		return nil
@@ -76,17 +77,19 @@ func run(ctx context.Context) error {
 		jitem, _ := json.Marshal(m)
 
 		if err := webhook.GetPost(cfg.Url, string(jitem)); err != nil {
+			botcode.SendLog(cfg.Bot, chatID, "Err webhook")
 			return errors.Wrap(err, "webhook")
 		}
 		return nil
 	})
 	//flow Auth
 	codePrompt := func(ctx context.Context, sentCode *tg.AuthSentCode) (string, error) {
-
-		code, err := botcode.GetCode(cfg.Bot)
+		code, cid, err := botcode.GetCode(cfg.Bot)
+		chatID = cid
 		if err != nil {
 			return "", err
 		}
+		logger.Info(strings.TrimSpace(code))
 		return strings.TrimSpace(code), nil
 	}
 	flow := auth.NewFlow(
@@ -100,10 +103,12 @@ func run(ctx context.Context) error {
 		// Perform auth if no session is available. ---bot
 		status, err := client.Auth().Status(ctx)
 		if err != nil {
+			botcode.SendLog(cfg.Bot, chatID, "Err status")
 			return errors.Wrap(err, "status")
 		}
 		if !status.Authorized {
 			if err := client.Auth().IfNecessary(ctx, flow); err != nil {
+				botcode.SendLog(cfg.Bot, chatID, "Err auth")
 				return errors.Wrap(err, "auth")
 			}
 		}
@@ -111,11 +116,13 @@ func run(ctx context.Context) error {
 		// Fetch user info.
 		user, err := client.Self(ctx)
 		if err != nil {
+			botcode.SendLog(cfg.Bot, chatID, "Err call self")
 			return errors.Wrap(err, "call self")
 		}
 
 		return gaps.Run(ctx, client.API(), user.ID, updates.AuthOptions{
 			OnStart: func(ctx context.Context) {
+				botcode.SendLog(cfg.Bot, chatID, "Gaps started")
 				logger.Info("Gaps started")
 			},
 		})
